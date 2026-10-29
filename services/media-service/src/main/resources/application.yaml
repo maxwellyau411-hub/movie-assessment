@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: media-service
+  # Required at startup; there are deliberately no defaults for credentials.
+  datasource:
+    url: ${MEDIA_DB_URL}
+    username: ${MEDIA_DB_USERNAME}
+    password: ${MEDIA_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate # schema is owned by Flyway; Hibernate never creates or drops tables
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
+  web:
+    resources:
+      # No default static mapping; only the two image paths in MediaWebConfiguration are served.
+      add-mappings: false
+  grpc:
+    server:
+      # Plaintext inside the private Compose network only; deployed environments need TLS + service identity.
+      address: ${MEDIA_GRPC_ADDRESS:127.0.0.1}
+      port: ${MEDIA_GRPC_PORT:9090}
+      health:
+        # The standard grpc.health.v1 service reports the application's health (including its database).
+        enabled: true
+        schedule:
+          delay: 1s
+          period: 5s
+
+media:
+  # Originals, thumbnails and in-progress uploads, all on one volume so moves are atomic.
+  root: ${MEDIA_STORAGE_ROOT:build/local-media}
+
+server:
+  address: ${MEDIA_HTTP_ADDRESS:127.0.0.1}
+  port: ${MEDIA_HTTP_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -1,0 +1,17 @@
+-- Included by explain.sql once per query. Expects psql variables :label and :q (the SQL).
+\echo
+\echo '================================================================'
+\echo :label
+\echo :q
+-- Run once unmeasured, so both measurements read from a warm cache.
+\o /dev/null
+:q;
+\o
+\echo '--- with indexes'
+EXPLAIN (ANALYZE, BUFFERS) :q;
+SET enable_indexscan = off;
+SET enable_bitmapscan = off;
+\echo '--- with enable_indexscan = off and enable_bitmapscan = off'
+EXPLAIN (ANALYZE, BUFFERS) :q;
+RESET enable_indexscan;
+RESET enable_bitmapscan;

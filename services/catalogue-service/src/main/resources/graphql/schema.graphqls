@@ -1,0 +1,283 @@
+# Authoritative browser API. Errors carry extensions.code: VALIDATION_ERROR
+# (+ extensions.fieldErrors), NOT_FOUND, CONFLICT (+ extensions.reason), or SERVICE_UNAVAILABLE
+# (media-service did not answer; nothing was changed).
+
+"ISO-8601 calendar date, e.g. 2026-10-25."
+scalar Date
+
+"ISO-8601 UTC timestamp, e.g. 2026-10-25T08:30:00Z."
+scalar DateTime
+
+"A file part of a multipart request (graphql-multipart-request-spec)."
+scalar Upload
+
+type Query {
+  "Foundation probe: Catalogue answers and can reach media-service over gRPC. Exposes no data."
+  serviceStatus: ServiceStatus!
+
+  "The controlled genre list, ordered by name."
+  genres: [Genre!]!
+
+  "Null when no movie has this ID."
+  movie(id: ID!): Movie
+
+  """
+  Cursor paging: first 1-50 (default 20), after = a previous page's pageInfo.endCursor. A cursor
+  only works with the sort and filter it was made with; otherwise VALIDATION_ERROR on "after".
+  """
+  movies(first: Int = 20, after: String, sort: MovieSort = TITLE_ASC, filter: MovieFilter): MovieConnection!
+
+  "Null when no person has this ID."
+  person(id: ID!): Person
+
+  "People in the Cast category, credited or not. Paging as for movies."
+  castMembers(first: Int = 20, after: String, sort: PersonSort = NAME_ASC, search: String): PersonConnection!
+
+  "People in the Creator category. With role, only people who have at least one credit in that role."
+  creators(first: Int = 20, after: String, sort: PersonSort = NAME_ASC, search: String, role: CreatorRole): PersonConnection!
+}
+
+type Mutation {
+  "Returns DuplicateMovieWarning (and saves nothing) when a similar movie exists, unless confirmDuplicate is true."
+  createMovie(input: MovieInput!, confirmDuplicate: Boolean = false): MovieSaveResult!
+
+  "expectedVersion is the version the editor loaded; a newer saved version gives CONFLICT (STALE_VERSION)."
+  updateMovie(id: ID!, expectedVersion: Int!, input: MovieInput!, confirmDuplicate: Boolean = false): MovieSaveResult!
+
+  """
+  Deletes the movie with its genre links, cast and creator credits and poster. The people and genres
+  are kept. Returns the deleted ID. A newer saved version gives CONFLICT (STALE_VERSION).
+  """
+  deleteMovie(id: ID!, expectedVersion: Int!): ID!
+
+  """
+  Sends as a multipart request. JPEG, PNG or WebP, at most 5 MB and 25 megapixels; the file's bytes
+  must match its declared type. A refused file gives VALIDATION_ERROR on field "file". Replaces any
+  current poster, which is kept until the new one is stored. Raises the movie's version.
+  """
+  uploadMoviePoster(movieId: ID!, file: Upload!): Movie!
+
+  createPerson(input: PersonInput!, confirmDuplicate: Boolean = false): PersonSaveResult!
+  updatePerson(id: ID!, expectedVersion: Int!, input: PersonInput!, confirmDuplicate: Boolean = false): PersonSaveResult!
+
+  """
+  Deletes a person who has no credits. While any credit remains it gives CONFLICT (PERSON_HAS_CREDITS)
+  with extensions.movieCount and extensions.movies (up to 10 of { id title releaseYear }).
+  Returns the deleted ID.
+  """
+  deletePerson(id: ID!, expectedVersion: Int!): ID!
+
+  "The person must be in the Cast category (CONFLICT CATEGORY_REQUIRED otherwise)."
+  addCastCredit(movieId: ID!, personId: ID!, characterName: String): CastCredit!
+  "Removes only the relationship. Returns the removed credit's ID."
+  removeCastCredit(creditId: ID!): ID!
+
+  "The person must be in the Creator category. role may be omitted (shown as Unspecified)."
+  addCreatorCredit(movieId: ID!, personId: ID!, role: CreatorRole): CreatorCredit!
+  removeCreatorCredit(creditId: ID!): ID!
+}
+
+enum ComponentStatus {
+  UP
+  DOWN
+}
+
+type ServiceStatus {
+  catalogue: ComponentStatus!
+  mediaService: ComponentStatus!
+}
+
+type Genre {
+  code: ID!
+  name: String!
+}
+
+"Every sort ends with the movie ID, so equal titles or dates keep a fixed order."
+enum MovieSort {
+  TITLE_ASC
+  TITLE_DESC
+  "Unknown release dates last."
+  RELEASE_DATE_NEWEST
+  "Unknown release dates last."
+  RELEASE_DATE_OLDEST
+}
+
+enum PersonSort {
+  NAME_ASC
+  NAME_DESC
+}
+
+enum PersonCategory {
+  CAST
+  CREATOR
+}
+
+enum CreatorRole {
+  DIRECTOR
+  WRITER
+  PRODUCER
+  COMPOSER
+}
+
+"All given criteria must match. Several genres mean any of them. Unknown release dates never match releaseYear."
+input MovieFilter {
+  "Case-insensitive title contains; % and _ match literally."
+  search: String
+  genreCodes: [ID!]
+  releaseYear: Int
+}
+
+input MovieInput {
+  title: String!
+  synopsis: String
+  "Optional; future dates are allowed."
+  releaseDate: Date
+  runtimeMinutes: Int
+  "At least one; no repeats."
+  genreCodes: [ID!]!
+}
+
+input PersonInput {
+  name: String!
+  "Optional; cannot be in the future."
+  dateOfBirth: Date
+  biography: String
+  "Cast, Creator, or both."
+  categories: [PersonCategory!]!
+}
+
+type Movie {
+  id: ID!
+  title: String!
+  synopsis: String
+  releaseDate: Date
+  "Derived from releaseDate."
+  releaseYear: Int
+  runtimeMinutes: Int
+  genres: [Genre!]!
+  "Null when the movie has no poster."
+  artwork: Artwork
+  cast: [CastCredit!]!
+  creators: [CreatorCredit!]!
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"Root-relative image URLs; the files never change, so they can be cached for good."
+type Artwork {
+  "320 px wide, for lists."
+  thumbnailUrl: String!
+  "The original upload."
+  fullUrl: String!
+  "Of the original."
+  width: Int!
+  height: Int!
+}
+
+type Person {
+  id: ID!
+  name: String!
+  dateOfBirth: Date
+  "Whole years; null when the birth date is unknown."
+  age: Int
+  biography: String
+  categories: [PersonCategory!]!
+  castCredits: [CastCredit!]!
+  creatorCredits: [CreatorCredit!]!
+  version: Int!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+"Credits reference movies and people by summary, so queries cannot nest without limit."
+type MovieRef {
+  id: ID!
+  title: String!
+  releaseDate: Date
+  releaseYear: Int
+}
+
+type PersonRef {
+  id: ID!
+  name: String!
+  dateOfBirth: Date
+  categories: [PersonCategory!]!
+}
+
+type CastCredit {
+  id: ID!
+  movie: MovieRef!
+  person: PersonRef!
+  characterName: String
+}
+
+type CreatorCredit {
+  id: ID!
+  movie: MovieRef!
+  person: PersonRef!
+  "Null means Unspecified."
+  role: CreatorRole
+}
+
+type MovieConnection {
+  edges: [MovieEdge!]!
+  "The same movies as edges, without cursors."
+  nodes: [Movie!]!
+  pageInfo: PageInfo!
+  "Counted only when selected."
+  totalCount: TotalCount!
+}
+
+type MovieEdge {
+  cursor: String!
+  node: Movie!
+}
+
+type PersonConnection {
+  edges: [PersonEdge!]!
+  nodes: [Person!]!
+  pageInfo: PageInfo!
+  "Counted only when selected."
+  totalCount: TotalCount!
+}
+
+type PersonEdge {
+  cursor: String!
+  node: Person!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  "Pass as after to get the next page. Null when the page is empty."
+  endCursor: String
+}
+
+"Counting stops at 10000. When capped is true, show the total as 10,000+."
+type TotalCount {
+  count: Int!
+  capped: Boolean!
+}
+
+union MovieSaveResult = MovieSaved | DuplicateMovieWarning
+union PersonSaveResult = PersonSaved | DuplicatePersonWarning
+
+type MovieSaved {
+  movie: Movie!
+}
+
+"Nothing was saved. Show the candidates, then resubmit with confirmDuplicate: true to save anyway."
+type DuplicateMovieWarning {
+  message: String!
+  candidates: [MovieRef!]!
+}
+
+type PersonSaved {
+  person: Person!
+}
+
+"Nothing was saved. Show the candidates, then resubmit with confirmDuplicate: true to save anyway."
+type DuplicatePersonWarning {
+  message: String!
+  candidates: [PersonRef!]!
+}

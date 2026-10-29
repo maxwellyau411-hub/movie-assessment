@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: catalogue-service
+  # Required at startup; there are deliberately no defaults for credentials.
+  datasource:
+    url: ${CATALOGUE_DB_URL}
+    username: ${CATALOGUE_DB_USERNAME}
+    password: ${CATALOGUE_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate # schema is owned by Flyway; Hibernate never creates or drops tables
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
+  graphql:
+    http:
+      path: /graphql
+    graphiql:
+      # In-browser query editor for local play; its page loads scripts from a public CDN.
+      enabled: ${CATALOGUE_GRAPHIQL:false}
+  grpc:
+    client:
+      channel:
+        media-service:
+          # Plaintext inside the private Compose network only; deployed environments need TLS + service identity.
+          target: ${MEDIA_SERVICE_GRPC_TARGET:static://127.0.0.1:9090}
+          default:
+            # Health checks and deletes. Uploads set their own, longer deadline (MediaClient).
+            deadline: ${MEDIA_SERVICE_GRPC_DEADLINE:2s}
+  servlet:
+    multipart:
+      # Poster uploads (D20): 5 MB per file, 6 MB per request. Larger requests get HTTP 413.
+      max-file-size: 5MB
+      max-request-size: 6MB
+      # Always buffer the file part on disk, never in memory.
+      file-size-threshold: 0
+
+# multipart-spring-graphql: its route is replaced by GraphQlUploadConfiguration (which answers 400,
+# not 500, for a malformed request), and schema.graphqls declares `scalar Upload` itself.
+multipart:
+  springboot:
+    webmvc:
+      server:
+        enabled: false
+    patch-schema:
+      enabled: false
+
+catalogue:
+  demo-data:
+    # Fictional demo catalogue (genres are always present via migration). Off unless enabled.
+    enabled: ${CATALOGUE_DEMO_DATA:false}
+
+server:
+  address: ${CATALOGUE_HTTP_ADDRESS:127.0.0.1}
+  port: ${CATALOGUE_HTTP_PORT:8080}
+  tomcat:
+    # operations + map + one file, with one spare.
+    max-part-count: 4
+    # Read (and discard) at most this much of a rejected oversize body so the client still sees the 413.
+    max-swallow-size: 8MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true

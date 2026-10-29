@@ -1,0 +1,27 @@
+# Pinned versions. Rationale and sources: docs/06-decisions-status.md (dependency matrix).
+# The Spring Boot BOM manages Kotlin stdlib, Spring, gRPC, protobuf-java, JDBC driver, Flyway and Testcontainers.
+[versions]
+spring-boot = "4.1.1"
+kotlin = "2.3.21"           # Boot 4.1.1 managed kotlin.version; KGP 2.3.21 supports Gradle 7.6.3-9.3.0
+protobuf-plugin = "0.9.6"   # version shown in the Boot 4.1 gRPC reference
+protoc = "4.35.1"           # matches Boot 4.1.1 protobuf-java.version
+grpc-java = "1.83.1"        # matches Boot 4.1.1 grpc-java.version
+ktlint-plugin = "14.2.0"
+ktlint = "1.8.0"
+twelvemonkeys = "3.15.3"   # WebP ImageIO reader (JDK ImageIO has no WebP decoder); proven in Step 01
+multipart-graphql = "2.1.0" # graphql-multipart-request-spec adapter linked from Spring GraphQL docs; proven in Step 01
+
+[libraries]
+spring-boot-bom = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc" }
+grpc-protoc-gen = { module = "io.grpc:protoc-gen-grpc-java", version.ref = "grpc-java" }
+imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys" }
+multipart-graphql = { module = "name.nkonev.multipart-spring-graphql:multipart-spring-graphql", version.ref = "multipart-graphql" }
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-jpa = { id = "org.jetbrains.kotlin.plugin.jpa", version.ref = "kotlin" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
+ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint-plugin" }

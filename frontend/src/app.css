@@ -1,0 +1,361 @@
+/*
+ * Global styles: the "film archive" look (D59), light and typographic like a printed catalogue.
+ * Thin 1px lines instead of shadows, no gradients, a 4px corner radius.
+ * Mobile first: the base rules fit a 360 px phone; wider screens add columns.
+ */
+:root {
+  /* Colours. Every one is defined here and only here. */
+  --bg: #f4f5f2;
+  --text: #1a1d1f;
+  --muted: #55595b; /* secondary text */
+  --line: #daddd8; /* lines and borders */
+  --accent: #0f5e5a; /* main buttons, links, upload progress, focus outlines only */
+  --on-accent: #ffffff;
+  --tint: #dce8e5; /* selected filters and hover backgrounds */
+  --danger: #b3261e; /* errors, field validation, delete confirmations only */
+  --on-danger: #ffffff;
+  /*
+   * Form controls need a 3:1 outline (WCAG 1.4.11); --line is only 1.25:1 against --bg,
+   * so inputs, selects and secondary buttons use the secondary-text grey for their border.
+   */
+  --control: var(--muted);
+  /* Soft placeholder colours, picked by a hash of the name (lib/initials.ts). */
+  --placeholder-0: #e6e0d3;
+  --placeholder-1: #dde3ea;
+  --placeholder-2: #e7dcd8;
+  --placeholder-3: #e0e6d7;
+  --placeholder-4: #e3dfea;
+
+  --font-serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+  --radius: 4px;
+
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.75rem;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin: 2rem 0 0.75rem;
+}
+
+.container {
+  width: 100%;
+  max-width: 90rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* Small metadata: year, runtime, genres. */
+.meta {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Buttons: at least 44 px tall, so they are easy to tap. */
+.button,
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--control);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover,
+button:hover:not(:disabled) {
+  background: var(--tint);
+}
+
+.button.primary,
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+/* Only the button that confirms a delete is red. */
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Forms keep a readable width on wide screens. */
+.form-width {
+  max-width: 48rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Forms */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.field label,
+.field legend {
+  font-weight: 600;
+}
+
+input[type='text'],
+input[type='search'],
+input[type='date'],
+input[type='number'],
+select,
+textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--control);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font: inherit;
+  color: inherit;
+}
+
+input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: var(--text);
+}
+
+textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+/* :is() makes this as specific as input[type='text'], and it comes later, so red wins. */
+:is(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.field .choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.field .choice:hover,
+.choice:has(input:checked) {
+  background: var(--tint);
+}
+
+/* Messages that stay on the page (load errors, empty lists, the stale-version alert). */
+.notice {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  margin: 0 0 1rem;
+}
+
+.notice > :first-child {
+  margin-top: 0;
+}
+
+.notice.error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Loading placeholders: a flat colour that pulses gently (no gradient). */
+.skeleton {
+  background: var(--line);
+  border-radius: var(--radius);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Movie cards in 2:3 posters: 2 per row on a phone, 3 on a tablet, 5–6 on a desktop. */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+@media (min-width: 40rem) {
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  h1 {
+    font-size: 2.25rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  .card-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 84rem) {
+  .card-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Detail pages: picture on the left, details on the right; stacked on a phone. */
+.detail {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.detail > .picture {
+  max-width: 18rem;
+}
+
+@media (min-width: 48rem) {
+  .detail {
+    grid-template-columns: minmax(12rem, 18rem) 1fr;
+    gap: 2.5rem;
+  }
+}
+
+/* Lists with thin lines between rows (cast, creators, credits). */
+.rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--line);
+}
+
+.rows > li {
+  border-bottom: 1px solid var(--line);
+}
+
+dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+dialog::backdrop {
+  background: color-mix(in srgb, var(--text) 45%, transparent);
+}

@@ -1,0 +1,146 @@
+# Local delivery stack. Setup: cp .env.example .env && docker compose up --build
+# Only the web entry point is published (on 127.0.0.1). Databases and gRPC stay on the private network.
+name: movie-catalogue
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?set MEDIA_DB_PASSWORD in .env}
+      CATALOGUE_DB_PASSWORD: ${CATALOGUE_DB_PASSWORD:?set CATALOGUE_DB_PASSWORD in .env}
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker; mount the parent.
+      - postgres-data:/var/lib/postgresql
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # TCP check: the temporary init-time server listens only on a Unix socket, so this
+      # succeeds only after init scripts have finished and the real server is up.
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # Artwork storage: gRPC (9090) for catalogue-service, plain HTTP (8080) for nginx's /media/ route.
+  media-service:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: media-service
+      secrets: [extra_ca]
+    environment:
+      MEDIA_DB_URL: jdbc:postgresql://postgres:5432/media_db
+      MEDIA_DB_USERNAME: media_service
+      MEDIA_DB_PASSWORD: ${MEDIA_DB_PASSWORD:?set MEDIA_DB_PASSWORD in .env}
+      MEDIA_GRPC_ADDRESS: 0.0.0.0
+      MEDIA_GRPC_PORT: "9090"
+      MEDIA_HTTP_ADDRESS: 0.0.0.0
+      MEDIA_HTTP_PORT: "8080"
+      MEDIA_STORAGE_ROOT: /var/lib/app/media
+    volumes:
+      # Originals, thumbnails and in-progress uploads. Mounted on the image's app-owned data
+      # directory so the new volume inherits that ownership.
+      - media:/var/lib/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # Ready means Flyway has migrated media_db. Catalogue's serviceStatus query performs the
+      # grpc.health.v1 check over gRPC.
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  catalogue-service:
+    build:
+      context: .
+      dockerfile: services/Dockerfile
+      args:
+        SERVICE: catalogue-service
+      secrets: [extra_ca]
+    environment:
+      CATALOGUE_DB_URL: jdbc:postgresql://postgres:5432/catalogue_db
+      CATALOGUE_DB_USERNAME: catalogue_service
+      CATALOGUE_DB_PASSWORD: ${CATALOGUE_DB_PASSWORD:?set CATALOGUE_DB_PASSWORD in .env}
+      CATALOGUE_HTTP_ADDRESS: 0.0.0.0
+      MEDIA_SERVICE_GRPC_TARGET: static://media-service:9090
+      # Fictional demo catalogue, inserted once into an empty database; its generated posters are
+      # uploaded to media-service.
+      CATALOGUE_DEMO_DATA: ${CATALOGUE_DEMO_DATA:-true}
+      # In-browser query editor at /graphiql for local exploration.
+      CATALOGUE_GRAPHIQL: ${CATALOGUE_GRAPHIQL:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./frontend
+      secrets: [extra_ca]
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8088}:8080"
+    depends_on:
+      catalogue-service:
+        condition: service_healthy
+      media-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # Optional large catalogue for performance checks; `docker compose up` never starts it.
+  #   docker compose run --rm large-seed
+  # Sizes: LARGE_SEED_MOVIES / LARGE_SEED_PEOPLE / LARGE_SEED_CREDITS (see .env.example).
+  # Undo with `docker compose down -v`, which also removes the demo data and all posters.
+  large-seed:
+    image: postgres:18.6-alpine
+    profiles: [large-seed]
+    environment:
+      PGHOST: postgres
+      PGDATABASE: catalogue_db
+      PGUSER: catalogue_service
+      PGPASSWORD: ${CATALOGUE_DB_PASSWORD:?set CATALOGUE_DB_PASSWORD in .env}
+    command:
+      - psql
+      - -v
+      - movies=${LARGE_SEED_MOVIES:-20000}
+      - -v
+      - people=${LARGE_SEED_PEOPLE:-10000}
+      - -v
+      - credits=${LARGE_SEED_CREDITS:-100000}
+      - -f
+      - /seed/large-seed.sql
+    volumes:
+      - ./infra/large-seed:/seed:ro
+    depends_on:
+      # Healthy means Flyway has created the tables.
+      catalogue-service:
+        condition: service_healthy
+    restart: "no"
+
+volumes:
+  postgres-data:
+  media:
+
+secrets:
+  # Optional PEM for networks that intercept HTTPS; defaults to an empty file (no-op).
+  extra_ca:
+    file: ${EXTRA_CA_CERT_FILE:-./infra/docker/no-extra-ca.pem}

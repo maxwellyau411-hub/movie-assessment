@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+// Media Service contract: catalogue-service stores and removes movie artwork through it.
+package moviecatalogue.media.v1;
+
+option java_package = "moviecatalogue.contracts.media.v1";
+option java_multiple_files = true;
+
+// Failures use gRPC status codes. INVALID_ARGUMENT: the file is not acceptable; the description
+// is a message that can be shown to the user as is. Anything else is a technical failure.
+service ArtworkService {
+  // Client streaming: the first message carries metadata, every later one a chunk of the file.
+  rpc UploadArtwork(stream UploadArtworkRequest) returns (UploadArtworkResponse);
+  // Idempotent: deleting an unknown or already deleted ID succeeds with deleted = false.
+  rpc DeleteArtwork(DeleteArtworkRequest) returns (DeleteArtworkResponse);
+}
+
+message UploadArtworkRequest {
+  oneof part {
+    ArtworkMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message ArtworkMetadata {
+  // As given by the uploader; kept for reference only and never used in a storage path.
+  string file_name = 1;
+  // image/jpeg, image/png or image/webp. Must match the file's actual bytes.
+  string content_type = 2;
+  // Total bytes the chunks will carry. The upload fails if they carry more or fewer.
+  int64 declared_size = 3;
+}
+
+message UploadArtworkResponse {
+  Artwork artwork = 1;
+}
+
+message Artwork {
+  string id = 1;
+  string content_type = 2;
+  int32 width = 3;
+  int32 height = 4;
+  int64 byte_size = 5;
+  // Root-relative URLs (served through the web entry point under /media/).
+  string full_url = 6;
+  string thumbnail_url = 7;
+  int32 thumbnail_width = 8;
+  int32 thumbnail_height = 9;
+}
+
+message DeleteArtworkRequest {
+  string id = 1;
+}
+
+message DeleteArtworkResponse {
+  bool deleted = 1;
+}

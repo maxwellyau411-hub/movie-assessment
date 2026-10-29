@@ -1,0 +1,13 @@
+# Build context for services/Dockerfile is the repository root; send only what Gradle needs.
+.git
+.env
+.env.*
+.gradle
+.kotlin
+.idea
+**/build
+**/node_modules
+frontend
+prototypes
+docs
+infra
