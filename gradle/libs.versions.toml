@@ -1,4 +1,4 @@
-# Pinned versions. Rationale and sources: docs/06-decisions-status.md (dependency matrix).
+# Pinned versions. Where it matters, a comment says why that version was chosen.
 # The Spring Boot BOM manages Kotlin stdlib, Spring, gRPC, protobuf-java, JDBC driver, Flyway and Testcontainers.
 [versions]
 spring-boot = "4.1.1"

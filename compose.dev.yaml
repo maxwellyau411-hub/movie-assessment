@@ -1,0 +1,7 @@
+# Optional local-development additions; the delivery stack (compose.yaml) publishes only the web port.
+# Use it with:  COMPOSE_FILE=compose.yaml:compose.dev.yaml  (in .env, or in front of each command)
+services:
+  postgres:
+    ports:
+      # Lets a database tool on this machine connect; 127.0.0.1 keeps it off the network.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"

@@ -1,15 +1,27 @@
+# OS and editors
 .DS_Store
+.idea/
+*.iml
+.vscode/
+
+# Local configuration (copy .env.example to .env)
 .env
 .env.*
 !.env.example
-node_modules/
-.svelte-kit/
-build/
-dist/
+
+# Gradle / Kotlin
 .gradle/
 .kotlin/
-.idea/
-*.iml
+build/
+out/
+bin/
+
+# Frontend
+node_modules/
+.svelte-kit/
+dist/
 coverage/
 playwright-report/
 test-results/
+
+*.log

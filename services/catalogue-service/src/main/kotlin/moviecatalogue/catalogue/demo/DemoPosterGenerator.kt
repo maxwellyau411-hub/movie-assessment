@@ -12,7 +12,7 @@ import javax.imageio.ImageIO
 /**
  * Draws placeholder posters in code: a gradient derived from the movie ID plus the title text.
  * No third-party images or fonts are bundled (the JRE's DejaVu fonts are used), so the artwork is
- * freely redistributable. Origin is documented in docs/06-decisions-status.md.
+ * freely redistributable.
  */
 object DemoPosterGenerator {
     const val WIDTH = 600
